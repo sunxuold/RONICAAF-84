@@ -342,6 +342,7 @@ void unloadAudio()
 }
 
 bool audioSwitch = true;	 
+
 //播放音效
 int PlayWAVAudio(int  pos)
 {
@@ -351,8 +352,7 @@ int PlayWAVAudio(int  pos)
 	{
 		printf("Couldn't MPlayWAVAudio \n");
 		return 1;          	
-	}
-    
+	}    
 	Mix_PlayChannel(-1, WavChunk[pos], 0);  //播放音效
 	return 0;	
 }
