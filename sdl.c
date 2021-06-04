@@ -1575,17 +1575,19 @@ int main(int argc, char** argv)
 				case SDL_KEYUP:
 					for (i = 0; i < sizeof(KeysHavingElements) / sizeof(KeysHavingElements[0]); i++)
 					{
+#ifdef SDL_1
 						if (Event.key.keysym.sym == KeysHavingElements[i])
+#else
+						if (Event.key.keysym.scancode == KeysHavingElements[i] && Event.key.repeat == 0)
+#endif
 						{
-							i = KeysToElements[i];
-							
-
+							i = KeysToElements[i];							
 							ElementPressed[i] = (Event.type == SDL_KEYDOWN);
 							ElementEverPressed[i] = true;
-													
+							//printf("Received SDL_KEY button %s (keyboard %s)\n", ElementNames[i], SDL_GetKeyName(Event.key.keysym.sym));							
 							break;
 						}
-
+						
 					}
 					break;
 				case SDL_QUIT:
