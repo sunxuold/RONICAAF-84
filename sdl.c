@@ -344,7 +344,7 @@ void unloadAudio()
 bool audioSwitch = true;	 
 
 //播放音效
-int PlayWAVAudio(int  pos)
+int PlayWAVAudio(int  pos, int len)
 {
 	if(!audioSwitch) return 0;
 	
@@ -352,28 +352,31 @@ int PlayWAVAudio(int  pos)
 	{
 		printf("Couldn't MPlayWAVAudio \n");
 		return 1;          	
-	}    
-	Mix_PlayChannel(-1, WavChunk[pos], 0);  //播放音效
+	}
+	if(len<=0)	
+		Mix_PlayChannel(-1, WavChunk[pos], 0);  //播放音效
+	else
+		Mix_PlayChannelTimed(-1, WavChunk[pos], 0, len);
 	return 0;	
 }
 
 
 //播放声音优先级从低到高：BBEP   FIRE FIREPLAN  PLANBOOM  SHIPBOOM 
-void PlayAudioLogic()
-{
+//void PlayAudioLogic()
+//{
 	
 	//PlayWAVAudio(START);	
 		
 	//PlayWAVAudio(SHIPBOOM);
 	//PlayWAVAudio(PLANBOOM);
 	//PlayWAVAudio(FIREPLAN);
-	PlayWAVAudio(FIRE);
+	//PlayWAVAudio(FIRE);
 	//PlayWAVAudio(BEEP);
 				
 	//PlayWAVAudio(GAMEOVER);
 	
 	
-}
+//}
 //------------------Voice define End----------------------------------------
 
 
@@ -414,8 +417,8 @@ SDLKey KeysHavingElements[] = {
 	SDLK_DOWN,
 	SDLK_LCTRL,
 	SDLK_LALT,
-	SDLK_LSHIFT,
 	SDLK_SPACE,
+	SDLK_LSHIFT,
 	SDLK_TAB,
 	SDLK_BACKSPACE,
 	SDLK_PAGEUP,
@@ -438,8 +441,8 @@ SDL_Scancode KeysHavingElements[] = {
 	SDL_SCANCODE_DOWN,
 	SDL_SCANCODE_LCTRL,
 	SDL_SCANCODE_LALT,
-	SDL_SCANCODE_LSHIFT,
 	SDL_SCANCODE_SPACE,
+	SDL_SCANCODE_LSHIFT,
 	SDL_SCANCODE_TAB,	//R1
 	SDL_SCANCODE_BACKSPACE,
 	SDL_SCANCODE_PAGEUP,	//R2
@@ -491,10 +494,14 @@ enum Element JoyButtonsToElements[] = {
 	ELEMENT_R1,
 	ELEMENT_L2,
 	ELEMENT_R2,
-	ELEMENT_SELECT,
-	ELEMENT_START,
+	ELEMENT_DPAD_UP,
+	ELEMENT_DPAD_DOWN,	
+	ELEMENT_DPAD_LEFT,
+	ELEMENT_DPAD_RIGHT,	
 	ELEMENT_L3,
 	ELEMENT_R3,
+	ELEMENT_SELECT,
+	ELEMENT_START,
 };
 
 const char* ElementNames[] = {
@@ -548,8 +555,8 @@ bool HapticActive = false;
 #define FONT_FILE        "font.ttf"
 #define FONT_SIZE         12
 
-#define SCREEN_WIDTH     640  //320
-#define SCREEN_HEIGHT    480  //240
+#define SCREEN_WIDTH     640
+#define SCREEN_HEIGHT    480
 
 #define INNER_SCREEN_X    84
 #define INNER_SCREEN_Y    18
@@ -630,18 +637,19 @@ bool MustExit(void)
 //当前模式 0-初始化  1-游戏中炮台模式  2-游戏中直升机模式 
 int currentmode = 0;
 
-//输入模式 0-经典模式，1-标准方向模式
+//输入模式 0-标准方向模式，1- 经典模式
 int inputmode= 0; 
 
 //定义每关的延迟周期每秒60个周期，暂定9关
-int dashDelay[]=   {0,110,95,90,80,70,60,50,45};//飞机下降延迟
-int newPlanDelay[]={0,90 ,85,75,65,50,40,30,20};//飞机出现延迟
-int shipDelay[]={0,360,300,240,180,120,60,50,40};//小船前进延迟
+int dashDelay[]=      {0,110,100,90, 80, 70, 60, 50,40,30};//飞机下降延迟
+int newPlanDelay[]=   {0,90 ,80 ,70, 60, 50, 40, 30,25,20};//飞机出现延迟
+int shipDelay[]=      {0,360,300,240,200,160,120,90,60,40};//小船前进延迟
+int levelPlanCount[] ={0,20, 22, 25, 28, 32, 36, 44,55,72}; //每阶段总飞机数量
 int shootPlanDelay = 40;//被击中飞机在屏幕上显示延迟
 int demoDelay = 200;//演示在屏幕上显示延迟
 int fireDely = 30; //
 int currentLife = 3;  //生命数
-int levelPlanCount = 5; //每阶段总飞机数量
+
 
 
 int SCORE = 0; //当前分数
@@ -653,7 +661,7 @@ int HiLevel= 1; //当前最高关卡级别
 int currentstage = 1; //关卡阶段
 int HiStage = 1; //当前最高关卡阶段
 
-int currentTick = 0; //当前计数周期
+int currentTick = 300; //当前计数周期
 
 int planbound = 10; //击中飞机基本奖励，最终奖励乘以关卡级别
 int shipbound = 20; //每推动小船一步算一次的最终奖励乘以关卡级别
@@ -676,7 +684,7 @@ struct ElementInfo {
 //飞机元素第0行不处理，Pos说明：0 不显示 每行代表一列,只有最后一行需要第6个位置 其中第四个位置固定45度图(planmap2)， 第五个位置固定爆炸图
 struct ElementInfo MainPlanInfo[5][6]={{{0,NULL,0,0,0}, {0,NULL,0,0,0},{0,NULL,0,0,0},{0,NULL,0,0,0},{0,NULL,0,0,0},{0,NULL,0,0,0}},
 									   {{0,&planmap5,220,0,0}, {0,&planmap2,224,100,0},{0,&planmap2,140,180,0},{0,&planmap3,100,260,0},{0,&planboom,122,300,0},{0,&emptyImgae,0,0,0}},
-									   {{0,&planmap2,340,0,0}, {0,&planmap4,330,100,0},{0,&planmap2,320,180,0},{0,&planmap3,260,260,0},{0,&planboom,280,300,0},{0,&emptyImgae,0,0,0}},
+									   {{0,&planmap2,340,0,0}, {0,&planmap4,332,100,0},{0,&planmap2,320,180,0},{0,&planmap3,260,260,0},{0,&planboom,280,300,0},{0,&emptyImgae,0,0,0}},
 									   {{0,&planmap2,470,0,0}, {0,&planmap3,430,100,0},{0,&planmap5,460,180,0},{0,&planmap3,400,260,0},{0,&planboom,420,300,0},{0,&emptyImgae,0,0,0}},
 									   {{0,&planmap2,570,0,0}, {0,&planmap6,530,100,0},{0,&planmap2,570,180,0},{0,&planmap3,530,260,0},{0,&planmap5,560,330,0},{0,&planmap6,586,400,0}}};
 //自由飞机
@@ -694,7 +702,7 @@ struct surfacePos  levelmapPos = {148,108};
 
 //小船Pos说明：0 不显示
 struct ElementInfo Mainshipinfo = {0,&shipmap,0,0,0};
-struct surfacePos  MainShipPos[]={{0,0},{80,430},{230,430},{380,430},{530,430}};
+struct surfacePos  MainShipPos[]={{0,0},{80,420},{230,430},{380,430},{530,430}};
 int shipflashValue = 15; //小船闪烁时间间隔
 
 //炮台Pos说明：0-不显示  1 2 3 3 代表1234位置, 具体图片由逻辑进行提换
@@ -712,6 +720,14 @@ int planPosMap44[5][3]={{0,0},{2,3,4},{3,4,1},{4,1,2},{1,2,3}};
 bool showScore = false;
 
 bool needrefresh = false;
+
+//播放飞机下降音乐
+bool PlayBEEP = false;
+bool PlayFire = false;
+bool PlayFirePlan = false;
+//没有移动过救船不加分
+bool batteryMoved = false;
+
 #include <time.h>
 //演示刷新
 void demorefresh()
@@ -722,10 +738,14 @@ void demorefresh()
 		for(int i = 1; i<5; i++)
 			for(int j=0; j<6; j++)
 			{
-				MainPlanInfo[i][j].Pos = 1;//rand()%2;
+				MainPlanInfo[i][j].Pos = rand()%2;
 			}
 		
 		Mainshipinfo.Pos = rand()%5;
+		if(Mainshipinfo.Pos==1)
+			Mainshipinfo.imageinfo = &shipboom;
+		else
+			Mainshipinfo.imageinfo = &shipmap;
 		
 		MainBatteryInfo.Pos = rand()%5;
 		
@@ -737,7 +757,7 @@ void demorefresh()
 		
 		needrefresh = true;
 		
-		PlayWAVAudio(LEVELPASS);
+		PlayWAVAudio(LEVELPASS, 0);
 		
 		if(debugcheck) printf("demorefresh waite game start \n");
 	}
@@ -788,7 +808,7 @@ void mainRefresh()
 
 	//准备大背景图	
 	//SDL_FillRect (Screen, NULL, SDL_COLOR(ColorEmptycolor));
-	SDL_BlitSurface(backgroundmap , NULL, Screen, NULL);	
+	SDL_BlitSurface(backgroundmap , NULL, RGBSurface, NULL);	
 	
 
 	int i, j;
@@ -882,6 +902,24 @@ void mainRefresh()
 		BlitSurface(RGBSurface, Input1Image, 10, 380);
 	}
 	//SDL_UnlockSurface(Screen);
+/*	
+	Uint32* src = (Uint32*)RGBSurface->pixels; 
+	Uint32* des = (Uint32*)Screen->pixels;
+	
+	
+	for(i = 0; i<240; i++)
+	{
+		for(j=0; j<320; j++)
+		{
+			*des = (((*src)&0xFCFCFCFC)>>2) + (((*(src+1))&0xFCFCFCFC)>>2) + (((*(src+640))&0xFCFCFCFC)>>2) + (((*(src+641))&0xFCFCFCFC)>>2);
+			//*des = *src; //((*src)&0xFF)+(((*src)&0xFCFCFCFC)>>2 + ((*(src+1))&0xFCFCFCFC)>>2 + ((*(src+640))&0xFCFCFCFC)>>2 + ((*(src+641))&0xFCFCFCFC)>>2);
+								 //+((((*src)&0x3030300 + (*(src+1))&0x3030300  + (*(src+640))&0x3030300 + (*(src+641))&0x3030300)&0xFCFCFC00)>>2);			
+			des++;
+			src+=2;
+		}
+		src+=640;
+	}
+*/
 	PRESENT();	
 	//SDL_LockSurface(Screen);
 }
@@ -924,6 +962,7 @@ void handleUserInput()
 	if(ElementPressed[ELEMENT_SELECT]) //设置静音开关	
 	{
 		audioSwitch = !audioSwitch;	
+		needrefresh = true;
 		if(debugcheck) printf("handleUserInput change  audioSwitch\n");
 	}
 	
@@ -947,8 +986,11 @@ void handleUserInput()
 			needrefresh = true;
 			if(debugcheck) printf("handleUserInput Start Game\n");
 			
+			if(currentTick<180) //等demo音乐完成
+				SDL_Delay((180-currentTick) *15);
+				
 			//播放游戏开始音乐
-			PlayWAVAudio(START);
+			PlayWAVAudio(START, 0);
 			
 			//初始化状态
 			initMainGame(true);		
@@ -958,8 +1000,8 @@ void handleUserInput()
 			showScore = false;
 			mainRefresh();			
 			showScore = true;
-			//延迟2s开始游戏
-			SDL_Delay(2000);
+			//延迟3s开始游戏
+			SDL_Delay(3000);
 			//createValueSurface(SCORE,0);
 		}
 		else
@@ -993,7 +1035,7 @@ void handleUserInput()
 		if(plancount ==0)//开始新关卡
 		{
 			//播放游戏过关音乐
-			PlayWAVAudio(LEVELPASS);
+			PlayWAVAudio(LEVELPASS, 0);
 			mainRefresh();		
 			
 			if(currentstage ==3)
@@ -1036,13 +1078,14 @@ void handleUserInput()
 	}
 		
 	
-	//先处理各个元素位置
-	if(!handlePlan()) return;	
+		//先处理各个元素位置
+		if(!handlePlan()) return;	
 	
-	if(!handleShip()) return;
+		if(!handleShip()) return;
 	
-	//判断用户有效输入
 
+		
+		//判断用户有效输入
 		if (currentmode==2 && ElementPressed[inputdefine[inputmode][ELEMENT_DPAD_UP]] ) //直升机变炮台
 		{
 			MainHelicopterInfo.Pos = 0;
@@ -1058,7 +1101,9 @@ void handleUserInput()
 			MainHelicopterInfo.Pos = Mainshipinfo.Pos;
 			currentmode = 2;
 			
-			SCORE+=shipbound*currentlevel; //加分
+			if(batteryMoved) SCORE+=shipbound*currentlevel; //加分			
+			batteryMoved = false;
+			
 			//createValueSurface(SCORE,0);
 			Mainshipinfo.delaytime = shipDelay[currentlevel]; //增加延迟
 			
@@ -1074,6 +1119,7 @@ void handleUserInput()
 			   MainBatteryInfo.imageinfo = &batterymap; //恢复成未发射状态			   
 			   needrefresh = true;
 			   if(debugcheck) printf("handleUserInput Move Battery to: %d\n", MainBatteryInfo.Pos);
+			   batteryMoved = true;
 			}
 		}
 		else if(ElementPressed[inputdefine[inputmode][ELEMENT_DPAD_RIGHT]])//向右移动炮台或者直升机
@@ -1083,7 +1129,7 @@ void handleUserInput()
 				if(MainBatteryInfo.Pos<4)
 				{
 					MainBatteryInfo.Pos++;					
-					
+					batteryMoved = true;
 					needrefresh = true;
 					if(debugcheck) printf("handleUserInput  Move Battery to: %d\n", MainBatteryInfo.Pos);
 				}
@@ -1104,18 +1150,23 @@ void handleUserInput()
 					//createValueSurface(SCORE,0);
 					needrefresh = true;
 					if(debugcheck) printf("handleUserInput  Move HelicopterInfo to: %d\n", MainHelicopterInfo.Pos);
+					batteryMoved = true;
 				}				
 				Mainshipinfo.delaytime = shipDelay[currentlevel]; //增加延迟
 			}
 		}
+		
+		PlayFire = false;
+		PlayFirePlan = false;
 		
 		if(ElementPressed[inputdefine[inputmode][ELEMENT_A]]|| ElementPressed[inputdefine[inputmode][ELEMENT_B]]) //攻击设置
 		{
 			if(MainBatteryInfo.imageinfo != &batteryshoot)
 			{
 				MainBatteryInfo.imageinfo = &batteryshoot; 				
-				//播放发射音乐
-				PlayWAVAudio(FIRE);
+				
+				//播放发射音乐				
+				PlayFire = true;
 				needrefresh = true;
 				fireDely = 30;
 				if(debugcheck) printf("handleUserInput  Battery Fire at %d\n", MainBatteryInfo.Pos);
@@ -1127,6 +1178,8 @@ void handleUserInput()
 	//不能简单的还原飞机图片，这里还要考虑被击中的图片需要延迟一段时间
 	//MainPlanInfo[0][3].imageinfo = MainPlanInfo[1][3].imageinfo = MainPlanInfo[2][3].imageinfo = MainPlanInfo[3][3].imageinfo = planmap2;
 	
+
+		
 	//攻击判定
 	if( MainBatteryInfo.imageinfo == (&batteryshoot) && currentmode == 1)
 	{
@@ -1136,7 +1189,8 @@ void handleUserInput()
 			MainPlanInfo[MainBatteryInfo.Pos][3].imageinfo = &planshoot;
 			
 			//播放击中音乐
-			PlayWAVAudio(FIREPLAN);
+			PlayFirePlan = true;
+			
 			
 			//刷新爆炸图片的延迟显示时间
 			MainPlanInfo[MainBatteryInfo.Pos][3].delaytime = shootPlanDelay;	
@@ -1157,6 +1211,12 @@ void handleUserInput()
 	}
 	
 	fireDely--;
+	
+	//播放飞机相关声音	
+	if(PlayFirePlan)PlayWAVAudio(FIREPLAN, 0);
+	else if (PlayFire) PlayWAVAudio(FIRE, 0);	
+	else if(PlayBEEP)PlayWAVAudio(BEEP, 0);
+	
 	//刷新屏幕
 	mainRefresh();
 }
@@ -1165,7 +1225,7 @@ void handleUserInput()
 
 bool handlePlan()
 {
-	bool PlayBEEP = false;
+	PlayBEEP = false;
 	int i,j;
 	currentTick++;
 		
@@ -1224,7 +1284,7 @@ bool handlePlan()
 					if(currentLife>0) 
 					{					
 						//本关重新开始
-						PlayWAVAudio(PLANBOOM);	
+						PlayWAVAudio(PLANBOOM, 0);	
 						mainRefresh();		
 						initMainGame(false);
 						if(debugcheck) printf("handlePlan %d fail restart %d-%d \n", i, currentlevel, currentstage);		
@@ -1234,7 +1294,7 @@ bool handlePlan()
 						
 						
 						//播放GameOver音乐
-						PlayWAVAudio(GAMEOVER);
+						PlayWAVAudio(GAMEOVER, 0);
 						if(HiSCORE< SCORE)HiSCORE = SCORE;
 						mainRefresh();	
 						
@@ -1330,8 +1390,7 @@ bool handlePlan()
 			}			
 		}
 	}			
-	//播放飞机下降声音
-	if(PlayBEEP)PlayWAVAudio(BEEP);
+
 	return true;	
 }
 
@@ -1375,7 +1434,7 @@ bool handleShip()
 				if(currentLife>0) 
 				{					
 					//本关重新开始
-					PlayWAVAudio(SHIPBOOM);	
+					PlayWAVAudio(SHIPBOOM, 0);	
 					mainRefresh();	
 					initMainGame(false);
 					if(debugcheck) printf("handleShip fail restart %d-%d \n", currentlevel, currentstage);	
@@ -1385,7 +1444,7 @@ bool handleShip()
 				{
 
 					//播放GameOver音乐
-					PlayWAVAudio(GAMEOVER);
+					PlayWAVAudio(GAMEOVER, 0);
 					mainRefresh();
 					//游戏结束
 					currentmode =0;					
@@ -1433,7 +1492,9 @@ void initMainGame( bool isintinal)
 		currentstage = 1; //关卡阶段		
 		//MainPlanInfo[0][4].imageinfo = MainPlanInfo[1][4].imageinfo = MainPlanInfo[2][4].imageinfo = MainPlanInfo[3][4].imageinfo = &planboom;
 	}
-	plancount = levelPlanCount;//每阶段累计飞机数量	
+	plancount = levelPlanCount[currentlevel]; //每阶段累计飞机数量	
+	
+	batteryMoved = false;
 	
 	currentTick = 0;
 	//createValueSurface(currentlevel,currentstage);
@@ -1469,6 +1530,10 @@ void initMainGame( bool isintinal)
 
 int main(int argc, char** argv)
 {
+	//FILE *fp = NULL;
+	//fp = fopen("/media/roms/app/test.log", "w"); 
+	//char strlog[128];
+
 	unsigned int i;
 	bool Error = false;
 	
@@ -1538,9 +1603,9 @@ int main(int argc, char** argv)
 	srand((unsigned)time(NULL));
 	
 	//准备大背景图
-	SDL_ClearError();
-	SDL_BlitSurface(backgroundmap, NULL, Screen, NULL);	
-	PRESENT();	
+	//SDL_ClearError();
+	//SDL_BlitSurface(backgroundmap, NULL, RGBSurface, NULL);	
+	//PRESENT();	
 
 	if(debugcheck) printf("First Main frame Blit error is: %s\n", SDL_GetError());
 	
@@ -1563,10 +1628,10 @@ int main(int argc, char** argv)
 					 && Event.jbutton.which == JOYSTICK_INDEX(BuiltInJS))
 					{
 						i = JoyButtonsToElements[Event.jbutton.button];
-						if (ElementPressed[i] && Event.type == SDL_JOYBUTTONDOWN)
-							printf("Received SDL_JOYBUTTONDOWN for already-pressed button %s (joystick %d button %d)\n", ElementNames[i], Event.jbutton.which, Event.jbutton.button);
-						else if (!ElementPressed[i] && Event.type == SDL_JOYBUTTONUP)
-							printf("Received SDL_JOYBUTTONUP for already-released button %s (joystick %d button %d)\n", ElementNames[i], Event.jbutton.which, Event.jbutton.button);
+						//if (ElementPressed[i] && Event.type == SDL_JOYBUTTONDOWN)
+						//	printf("Received SDL_JOYBUTTONDOWN for already-pressed button %s (joystick %d button %d)\n", ElementNames[i], Event.jbutton.which, Event.jbutton.button);
+						//else if (!ElementPressed[i] && Event.type == SDL_JOYBUTTONUP)
+						//	printf("Received SDL_JOYBUTTONUP for already-released button %s (joystick %d button %d)\n", ElementNames[i], Event.jbutton.which, Event.jbutton.button);
 						ElementPressed[i] = (Event.type == SDL_JOYBUTTONDOWN);
 						ElementEverPressed[i] |= ElementPressed[i];
 					}
@@ -1584,10 +1649,16 @@ int main(int argc, char** argv)
 							i = KeysToElements[i];							
 							ElementPressed[i] = (Event.type == SDL_KEYDOWN);
 							ElementEverPressed[i] = true;
-							//printf("Received SDL_KEY button %s (keyboard %s)\n", ElementNames[i], SDL_GetKeyName(Event.key.keysym.sym));							
+							//printf("Received SDL_KEY button %s (keyboard %s)\n", ElementNames[i], SDL_GetKeyName(Event.key.keysym.sym));
+							//fwrite(strlog, sizeof(strlog) , 1, fp );	
 							break;
 						}
-						
+						else
+						{
+							//printf("Received SDL_KEY button %s\n", SDL_GetKeyName(Event.key.keysym.sym));
+							
+							 //fwrite(strlog, sizeof(strlog) , 1, fp );
+						}
 					}
 					break;
 				case SDL_QUIT:
@@ -1615,7 +1686,14 @@ int main(int argc, char** argv)
 		
 	unloadAudio();
 	unloadVideoSurface();
-
+	
+	//if(fp)
+	//{
+	//	fseek(fp,0,SEEK_END); 
+	//	fclose(fp);	
+	//}
+	
+	
 
 	if (BuiltInJS != NULL)
 		SDL_JoystickClose(BuiltInJS);
@@ -1624,7 +1702,7 @@ int main(int argc, char** argv)
 #ifdef SDL_2
 	SDL_DestroyWindow(mainwindows);	
 #endif
-   //if(RGBSurface)  SDL_FreeSurface(RGBSurface); 
+  //if(RGBSurface)  SDL_FreeSurface(RGBSurface); 
 
 cleanup_font:
 
