@@ -6,4 +6,4 @@
 
 HAVE FUN!
   
-![pic1](./game.png)
+![pic1](./game.jpg)
