@@ -86,7 +86,7 @@ SDL_Surface* shipboom = NULL;  //小船爆炸
 
 SDL_Surface* backgroundmap = NULL; //大背景图
 
-SDL_Surface* digitialvalue = NULL; //五位数字显示
+
 
 SDL_Surface* emptyImgae = NULL; //空白图
 
@@ -99,12 +99,20 @@ SDL_Surface* MuteImage = NULL; //静音标志图
 SDL_Surface* Input1Image = NULL; //输入1图
 SDL_Surface* Input0Image = NULL; //输入0图
 
+SDL_Surface* Cloud1Image = NULL; //云朵1
+SDL_Surface* Cloud2Image = NULL; //云朵2
+
 
 //int plan1Table[1,2,3,4];//第一列飞机图像索引，0表示不显示
 //int plan2Table[2,3,4,1];//第二列飞机图像索引，0表示不显示
 //int plan3Table[2,5,6,3];//第三列飞机图像索引，0表示不显示
 //int freeplanTable[1,2,3,4,5,6,7];//自由飞机图像索引，0表示不显示
 SDL_Surface* DigtialNumber[11]={NULL};
+SDL_Surface* digitialvalue = NULL; //五位数字显示
+
+
+SDL_Surface* SmallDigtialNumber[10]={NULL};
+SDL_Surface* smallDigitialvalue = NULL; //三位小数字显示
 
 #include "SDL_image.h"
 //加载图像文件到surface
@@ -137,6 +145,14 @@ void LoadSurfacefromFile(SDL_Surface** desSurface, const char* filename)
 		printf("Couldn't LoadSurfacefromFile:%s, error:%s\n", filename, SDL_GetError());				
 }
 
+//SDL_RWops * SDLCALL SDL_RWFromMem(void *mem, int size);
+
+//freesrc  A non-zero value mean is will automatically close/free the src for you.
+//SDL_Surface * SDLCALL IMG_Load_RW(SDL_RWops *src, int freesrc);
+
+//void SDLCALL SDL_FreeRW(SDL_RWops *area);
+
+
 //初始化图像内容
 void initVideoSurface()
 {
@@ -162,7 +178,7 @@ void initVideoSurface()
 	LoadSurfacefromFile(&shipmap, "Ship.png");
 	LoadSurfacefromFile(&shipboom, "ShipBoom.png");
 		
-	LoadSurfacefromFile(&digitialvalue, "Digtal.png");		
+			
 	
 	
 	LoadSurfacefromFile(&backgroundmap, "MainBack.png");
@@ -173,7 +189,9 @@ void initVideoSurface()
 	//SDL_Surface* tmppngsurf = IMG_Load("MainBack.png");
 	//backgroundmap = SDL_ConvertSurface(tmppngsurf, Screen->format, SDL_RLEACCEL);
 	//SDL_SetAlpha(backgroundmap, 0, 255);	
-	//SDL_FreeSurface(tmppngsurf);	
+	//SDL_FreeSurface(tmppngsurf);
+	
+	LoadSurfacefromFile(&digitialvalue, "Digtal.png");	
 	char DigName[16];
 	for(int i= 0;i<10;i++)
 	{
@@ -182,10 +200,22 @@ void initVideoSurface()
 	}
 	LoadSurfacefromFile(&(DigtialNumber[10]), "Heng.png");
 	
+	for(int i= 0;i<10;i++)
+	{
+		sprintf(DigName,"S%d.png",i);
+		LoadSurfacefromFile(&(SmallDigtialNumber[i]), DigName);
+	}
+	LoadSurfacefromFile(&smallDigitialvalue, "SDigtal.png");	
+	
+	
+	
 	LoadSurfacefromFile(&SuspendImage, "Suspend.png");
 	LoadSurfacefromFile(&MuteImage, "Mute.png");
 	LoadSurfacefromFile(&Input1Image, "Input1.png");
 	LoadSurfacefromFile(&Input0Image, "Input0.png");
+	
+	LoadSurfacefromFile(&Cloud1Image, "Cloud1.png");
+	LoadSurfacefromFile(&Cloud2Image, "Cloud2.png");
 	
 }
 
@@ -217,20 +247,33 @@ void unloadVideoSurface()
 	
 	if(backgroundmap)  SDL_FreeSurface(backgroundmap);
 	
-	if(digitialvalue)  SDL_FreeSurface(digitialvalue);
+	
 	
 	if(LifeCountImage)  SDL_FreeSurface(LifeCountImage);
 	
 	if(GameOverImage)  SDL_FreeSurface(GameOverImage);
-			
+	
+	if(digitialvalue)  SDL_FreeSurface(digitialvalue);	
 	for(int i= 0;i<11;i++)
 	{
 		if(DigtialNumber[i]) SDL_FreeSurface(DigtialNumber[i]);
-	}		
+	}
+
+	if(smallDigitialvalue)  SDL_FreeSurface(smallDigitialvalue);
+	for(int i= 0;i<10;i++)
+	{
+		if(SmallDigtialNumber[i]) SDL_FreeSurface(SmallDigtialNumber[i]);
+	}
+
+	
 	if(SuspendImage)  SDL_FreeSurface(SuspendImage);
 	if(MuteImage)  SDL_FreeSurface(MuteImage);	
 	if(Input1Image)  SDL_FreeSurface(Input1Image);
 	if(Input0Image)  SDL_FreeSurface(Input0Image);
+	
+	if(Cloud1Image)  SDL_FreeSurface(Cloud1Image);
+	if(Cloud2Image)  SDL_FreeSurface(Cloud2Image);
+
 	
 	if(Screen)  SDL_FreeSurface(Screen);	
 }
@@ -488,8 +531,8 @@ enum Element KeysToElements[] = {
 enum Element JoyButtonsToElements[] = {
 	ELEMENT_B,
 	ELEMENT_A,
-	ELEMENT_Y,
 	ELEMENT_X,
+	ELEMENT_Y,	
 	ELEMENT_L1,
 	ELEMENT_R1,
 	ELEMENT_L2,
@@ -641,12 +684,12 @@ int currentmode = 0;
 int inputmode= 0; 
 
 //定义每关的延迟周期每秒60个周期，暂定9关
-int dashDelay[]=      {0,110,100,90, 80, 70, 60, 50,40,30};//飞机下降延迟
-int newPlanDelay[]=   {0,90 ,80 ,70, 60, 50, 40, 30,25,20};//飞机出现延迟
-int shipDelay[]=      {0,360,300,240,200,160,120,90,60,40};//小船前进延迟
-int levelPlanCount[] ={0,20, 22, 25, 28, 32, 36, 44,55,72}; //每阶段总飞机数量
+int dashDelay[]=      {0,110,100,90, 80, 70, 60, 50,40,30,20, 10 ,5  };//飞机下降延迟
+int newPlanDelay[]=   {0,90 ,80 ,70, 60, 50, 40, 30,25,20,15, 6  ,3  };//飞机出现延迟
+int shipDelay[]=      {0,360,300,240,200,160,120,90,60,40,30 ,20 ,10 };//小船前进延迟
+int levelPlanCount[] ={0,20, 22, 25, 30, 36, 45, 60,72,90,120,300,600}; //每阶段总飞机数量
 int shootPlanDelay = 40;//被击中飞机在屏幕上显示延迟
-int demoDelay = 200;//演示在屏幕上显示延迟
+int demoDelay = 120;//演示在屏幕上显示延迟
 int fireDely = 30; //
 int currentLife = 3;  //生命数
 
@@ -663,8 +706,8 @@ int HiStage = 1; //当前最高关卡阶段
 
 int currentTick = 300; //当前计数周期
 
-int planbound = 10; //击中飞机基本奖励，最终奖励乘以关卡级别
-int shipbound = 20; //每推动小船一步算一次的最终奖励乘以关卡级别
+int planbound = 5; //击中飞机基本奖励，最终奖励乘以关卡级别
+int shipbound = 8; //每推动小船一步算一次的最终奖励乘以关卡级别
 
 int plancount;//每阶段剩余未击落飞机数量
 
@@ -717,7 +760,7 @@ int priviousPlan=0; //上次新飞机位置 下面的表用来防止连续同一
 int planPosMap33[5][2]={{0,0},{2,3},{3,1},{1,2},{1,2}}; 
 int planPosMap44[5][3]={{0,0},{2,3,4},{3,4,1},{4,1,2},{1,2,3}};  
 
-bool showScore = false;
+
 
 bool needrefresh = false;
 
@@ -728,17 +771,22 @@ bool PlayFirePlan = false;
 //没有移动过救船不加分
 bool batteryMoved = false;
 
+int showScore = 0;
+int demoPlanCount = 0;
+
 #include <time.h>
 //演示刷新
 void demorefresh()
 {
 	if(currentTick>demoDelay)
 	{
+		demoPlanCount = 0;
 		//srand((unsigned)time(NULL));				
 		for(int i = 1; i<5; i++)
 			for(int j=0; j<6; j++)
 			{
 				MainPlanInfo[i][j].Pos = rand()%2;
+				if(MainPlanInfo[i][j].Pos) demoPlanCount++;
 			}
 		
 		Mainshipinfo.Pos = rand()%5;
@@ -751,13 +799,16 @@ void demorefresh()
 		
 		MainHelicopterInfo.Pos = rand()%5;	
 		
-		showScore = rand()%2;	
+		currentLife = rand()%4;
+		
+		showScore++;
+		if(showScore>2) showScore = 0; //rand()%2;	
 		
 		currentTick = 0;
 		
 		needrefresh = true;
 		
-		PlayWAVAudio(LEVELPASS, 0);
+		PlayWAVAudio(LEVELPASS, 120*15-10);
 		
 		if(debugcheck) printf("demorefresh waite game start \n");
 	}
@@ -799,9 +850,23 @@ void createValueSurface(int pre, int post)
 	
 }
 
+//刷新云彩动画
+bool hidePlan = false;
+int currentCloudPos = 0;
+void refreshCloud()
+{	
+	currentCloudPos++;
+	hidePlan = rand()%2;	
+	BlitSurface(RGBSurface, Cloud1Image, currentCloudPos%640, 10);
+	BlitSurface(RGBSurface, Cloud2Image, (currentCloudPos+200)%640, 10);	
+	if(currentCloudPos >640) currentCloudPos = 0;
+}
+
 //刷新整个屏幕
 void mainRefresh()
 {
+	
+	
 	if(!needrefresh) return;
 	
 	if(debugcheck) printf("mainRefresh start \n");
@@ -810,11 +875,13 @@ void mainRefresh()
 	//SDL_FillRect (Screen, NULL, SDL_COLOR(ColorEmptycolor));
 	SDL_BlitSurface(backgroundmap , NULL, RGBSurface, NULL);	
 	
-
+	if(hidePlan) refreshCloud();
+	
 	int i, j;
 	
 	//刷新飞机
 	for(i = 1; i<5; i++)
+	{
 		for(j=0; j<6; j++)
 		{
 			if(MainPlanInfo[i][j].Pos)
@@ -825,13 +892,11 @@ void mainRefresh()
 				}
 			}
 		}
-	
-	//小船
-	if(Mainshipinfo.Pos)
-	{		
-		if(BlitSurface(RGBSurface, *(Mainshipinfo.imageinfo), MainShipPos[Mainshipinfo.Pos].posX, MainShipPos[Mainshipinfo.Pos].posY))
-			if(debugcheck) printf("Couldn't BlitSurface Mainshipinfo at %d\n",Mainshipinfo.Pos);
 	}
+	
+	if(!hidePlan) refreshCloud();
+	
+
 	
 	//炮台
 	if(MainBatteryInfo.Pos)	
@@ -847,15 +912,30 @@ void mainRefresh()
 			if(debugcheck) printf("Couldn't BlitSurface MainHelicopterInfo at %d\n",MainHelicopterInfo.Pos);
 		
 	}
-		
-	//标志
-	if(showScore) 
+
+	//小船
+	if(Mainshipinfo.Pos)
 	{		
+		if(BlitSurface(RGBSurface, *(Mainshipinfo.imageinfo), MainShipPos[Mainshipinfo.Pos].posX, MainShipPos[Mainshipinfo.Pos].posY))
+			if(debugcheck) printf("Couldn't BlitSurface Mainshipinfo at %d\n",Mainshipinfo.Pos);
+	}
+	
+	//标志
+	if(showScore>0) 
+	{	
 		BlitSurface(RGBSurface, scoremap, scoremapPos.posX, scoremapPos.posY);
-		if(currentmode >0)
-			createValueSurface(SCORE,0);	
-		else
-			createValueSurface(HiSCORE, 0);	
+		if(showScore==1)
+		{		
+			if(currentmode >0)
+				createValueSurface(SCORE,0);	
+			else
+				createValueSurface(HiSCORE, 0);	
+		}
+		else if(showScore==2)
+		{
+			BlitSurface(RGBSurface, levelmap, levelmapPos.posX, levelmapPos.posY);
+			createValueSurface(demoPlanCount, 0);	
+		}
 	}
 	else
 	{
@@ -871,7 +951,7 @@ void mainRefresh()
 	
 	//生命数、GAMEOVER显示	
 	j = 24;
-	if(currentLife <3 && currentmode>0)
+	if(currentLife <3 )//&& currentmode>0)
 	{
 		for(i =3; i>currentLife; i--)
 		{			
@@ -882,7 +962,23 @@ void mainRefresh()
 		if(currentLife==0)BlitSurface(RGBSurface, GameOverImage, 40, 136);
 		
 	}
-	
+
+	//刷新剩余飞机数量
+/*	if( currentmode>0)
+	{
+		int value= 100;	
+		int realv= 0;
+		int pre = plancount;	
+		for (int i = 0; i<3; i++)
+		{	
+			realv = pre/value;
+			pre = pre - realv*value;
+			value /=10;
+			BlitSurface(smallDigitialvalue, SmallDigtialNumber[realv], i*20, 0);
+		}			
+		BlitSurface(RGBSurface, smallDigitialvalue, 4, 286);
+	}
+*/	
 	if(!audioSwitch)//静音标志
 	{
 		BlitSurface(RGBSurface, MuteImage, 100, 4);
@@ -901,25 +997,35 @@ void mainRefresh()
 	{
 		BlitSurface(RGBSurface, Input1Image, 10, 380);
 	}
-	//SDL_UnlockSurface(Screen);
-/*	
+
+
+#ifdef SDL_1
 	Uint32* src = (Uint32*)RGBSurface->pixels; 
 	Uint32* des = (Uint32*)Screen->pixels;
-	
-	
+
 	for(i = 0; i<240; i++)
 	{
 		for(j=0; j<320; j++)
 		{
-			*des = (((*src)&0xFCFCFCFC)>>2) + (((*(src+1))&0xFCFCFCFC)>>2) + (((*(src+640))&0xFCFCFCFC)>>2) + (((*(src+641))&0xFCFCFCFC)>>2);
+			*des = (((*src)&0xFCFCFCFC)>>2) + (((*(src+1))&0xFCFCFCFC)>>2) + (((*(src+640))&0xFCFCFCFC)>>2) + (((*(src+641))&0xFCFCFCFC)>>2)
+					+(((((*src)&0x3030303) + ((*(src+1))&0x3030303) + ((*(src+640))&0x3030303) + ((*(src+641))&0x3030303))&0xFCFCFCFC)>>2);	
 			//*des = *src; //((*src)&0xFF)+(((*src)&0xFCFCFCFC)>>2 + ((*(src+1))&0xFCFCFCFC)>>2 + ((*(src+640))&0xFCFCFCFC)>>2 + ((*(src+641))&0xFCFCFCFC)>>2);
-								 //+((((*src)&0x3030300 + (*(src+1))&0x3030300  + (*(src+640))&0x3030300 + (*(src+641))&0x3030300)&0xFCFCFC00)>>2);			
+								 //+((((*src)&0x3030303 + (*(src+1))&0x3030303  + (*(src+640))&0x3030303 + (*(src+641))&0x3030303)&0xFCFCFCFC)>>2);			
 			des++;
 			src+=2;
 		}
 		src+=640;
 	}
-*/
+#endif	
+
+
+#ifdef SDL_2
+	SDL_Rect destRec={27,  1,  426, 318};	
+
+	SDL_BlitScaled(RGBSurface, NULL, Screen, &destRec);
+	
+	SDL_UpdateWindowSurface(mainwindows);
+#endif	
 	PRESENT();	
 	//SDL_LockSurface(Screen);
 }
@@ -986,8 +1092,9 @@ void handleUserInput()
 			needrefresh = true;
 			if(debugcheck) printf("handleUserInput Start Game\n");
 			
-			if(currentTick<180) //等demo音乐完成
-				SDL_Delay((180-currentTick) *15);
+			//120*15-10
+			if(currentTick<100) //等demo音乐完成
+				SDL_Delay((120-currentTick) *15);
 				
 			//播放游戏开始音乐
 			PlayWAVAudio(START, 0);
@@ -997,9 +1104,9 @@ void handleUserInput()
 			currentmode =1;
 				
 			//刷新屏幕
-			showScore = false;
+			showScore = 0;
 			mainRefresh();			
-			showScore = true;
+			showScore = 1;
 			//延迟3s开始游戏
 			SDL_Delay(3000);
 			//createValueSurface(SCORE,0);
@@ -1041,6 +1148,10 @@ void handleUserInput()
 			if(currentstage ==3)
 			{
 				currentlevel++; //关卡级别
+				
+				//应该没人能完成第12关，这里只是预防死机
+				if(currentlevel>12) currentlevel = 1;
+				
 				currentstage = 1;
 				if(HiLevel< currentlevel)	
 				{
@@ -1067,9 +1178,9 @@ void handleUserInput()
 			SDL_Delay(2000);
 			initMainGame(false);
 			//刷新屏幕
-			showScore = false;
+			showScore = 0;
 			mainRefresh();		
-			showScore = true;	
+			showScore = 1;	
 			//延迟2s开始游戏
 			SDL_Delay(1000);
 			//createValueSurface(SCORE,0);	
@@ -1101,7 +1212,7 @@ void handleUserInput()
 			MainHelicopterInfo.Pos = Mainshipinfo.Pos;
 			currentmode = 2;
 			
-			if(batteryMoved) SCORE+=shipbound*currentlevel; //加分			
+			if(batteryMoved) SCORE+=shipbound+currentlevel-1; //加分			
 			batteryMoved = false;
 			
 			//createValueSurface(SCORE,0);
@@ -1146,7 +1257,7 @@ void handleUserInput()
 				{
 					MainHelicopterInfo.Pos++;
 					Mainshipinfo.Pos++;
-					SCORE+=shipbound*currentlevel; //加分，放在这里防止频繁加分
+					SCORE+=shipbound+currentlevel-1; //加分，放在这里防止频繁加分
 					//createValueSurface(SCORE,0);
 					needrefresh = true;
 					if(debugcheck) printf("handleUserInput  Move HelicopterInfo to: %d\n", MainHelicopterInfo.Pos);
@@ -1194,9 +1305,8 @@ void handleUserInput()
 			
 			//刷新爆炸图片的延迟显示时间
 			MainPlanInfo[MainBatteryInfo.Pos][3].delaytime = shootPlanDelay;	
-			
-			//加分
-			SCORE += planbound*currentlevel;
+				
+			SCORE += planbound+currentlevel-1;  //加分
 			//createValueSurface(SCORE,0);
 			plancount--;
 			
@@ -1308,9 +1418,9 @@ bool handlePlan()
 									
 					//延迟2s开始游戏
 					SDL_Delay(2000);
-					showScore = false;
+					showScore = 0;
 					mainRefresh();
-					showScore = true;
+					showScore = 1;
 				
 					//延迟2s开始游戏					
 					SDL_Delay(1000);
@@ -1460,10 +1570,10 @@ bool handleShip()
 				
 				//延迟2s开始游戏
 				SDL_Delay(2000);
-				showScore = false;
+				showScore = 0;
 				mainRefresh();
 				SDL_Delay(1000);
-				showScore = true;
+				showScore = 1;
 				
 				
 				//createValueSurface(SCORE,0);				
@@ -1495,6 +1605,8 @@ void initMainGame( bool isintinal)
 	plancount = levelPlanCount[currentlevel]; //每阶段累计飞机数量	
 	
 	batteryMoved = false;
+	
+	currentCloudPos =rand()%640;
 	
 	currentTick = 0;
 	//createValueSurface(currentlevel,currentstage);
@@ -1552,20 +1664,18 @@ int main(int argc, char** argv)
 	SDL_ShowCursor(SDL_DISABLE);	
 
 #ifdef SDL_1
-	Screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_SWSURFACE);
+	Screen = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
 	if (Screen == NULL)
 	{
 		printf("SDL_SetVideoMode failed: %s\n", SDL_GetError());
 		Error = true;
 		goto cleanup_font;
 	}
-	RGBSurface =  Screen;//SDL_CreateRGBSurface(SDL_SWSURFACE,640,480, Screen->format->BitsPerPixel,
-	                      //Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
 #else
 	
 	SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "2", SDL_HINT_OVERRIDE);		
-	mainwindows = SDL_CreateWindow("Input test",
-		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_OPENGL);
+	mainwindows = SDL_CreateWindow("AF-84",
+		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,480, 320, SDL_WINDOW_OPENGL);
 	
 	Screen  = SDL_GetWindowSurface(mainwindows);
 	
@@ -1575,13 +1685,15 @@ int main(int argc, char** argv)
 		Error = true;
 		goto cleanup_font;
 	}
-	RGBSurface = Screen;//
+
 
 //	RGBSurface = SDL_CreateRGBSurface(0,720,480, Screen->format->BitsPerPixel,
 //	                    Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
 #endif
-	 
-
+	//RGBSurface =  Screen;
+	RGBSurface =  SDL_CreateRGBSurface(SDL_SWSURFACE,640,480, Screen->format->BitsPerPixel,
+	                      Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
+						  
 #ifdef SDL_1
 	// Make sure we don't get key repeating.
 	SDL_EnableKeyRepeat(0, 0);
@@ -1702,7 +1814,7 @@ int main(int argc, char** argv)
 #ifdef SDL_2
 	SDL_DestroyWindow(mainwindows);	
 #endif
-  //if(RGBSurface)  SDL_FreeSurface(RGBSurface); 
+  if(RGBSurface)  SDL_FreeSurface(RGBSurface); 
 
 cleanup_font:
 
