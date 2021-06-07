@@ -306,17 +306,20 @@ int BlitSurface(SDL_Surface* des, SDL_Surface* src, int x, int y)
 #include "SDL_mixer.h"
 enum GamePlayVoice{
 	START,     //游戏开始
+	GAMEOVER,  //游戏结束
+	LEVELPASS,  //关卡完成	
 	BEEP,      //飞机下降
 	FIRE,      //开火
 	FIREPLAN,  //击中飞机
 	PLANBOOM,  //飞机爆炸
 	SHIPBOOM,  //小船爆炸 
-	GAMEOVER,  //游戏结束
-	LEVELPASS  //关卡完成
+
 };
 
 #define WAVNUM 8
 static Mix_Chunk *WavChunk[WAVNUM];   //播放音效数据，可以同时播放几个，因此用数组
+static Mix_Music* WavMusic[WAVNUM];
+
 int g_EnableSound = 0;
 int g_SoundVolume = 128;
 
@@ -333,7 +336,11 @@ void initAudio()
 	else		
 	{
 		
-		for(int i=0;i<WAVNUM;i++) WavChunk[i]=NULL;
+		for(int i=0;i<WAVNUM;i++) 
+		{
+			WavChunk[i] = WavMusic[i] = NULL;
+		}
+		
 		r = Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, 2, 4096);		
 		
 		if( r < 0 ) {
@@ -343,8 +350,22 @@ void initAudio()
 		else
 		{
 			g_EnableSound=1;
-			WavChunk[START]= Mix_LoadWAV("START.wav");
+			Mix_VolumeMusic(g_SoundVolume);
+			
+			WavMusic[START] = Mix_LoadMUS("START.wav");
+			WavMusic[GAMEOVER] = Mix_LoadMUS("GAMEOVER.wav");
+			WavMusic[LEVELPASS] = Mix_LoadMUS("LEVELPASS.wav");
+			
+/*			WavChunk[START]= Mix_LoadWAV("START.wav");
 			if(WavChunk[START]) Mix_VolumeChunk(WavChunk[START],g_SoundVolume);
+			
+			WavChunk[GAMEOVER]= Mix_LoadWAV("GAMEOVER.wav");
+			if(WavChunk[GAMEOVER]) Mix_VolumeChunk(WavChunk[GAMEOVER],g_SoundVolume);	
+			
+			WavChunk[LEVELPASS]= Mix_LoadWAV("LEVELPASS.wav");
+			if(WavChunk[LEVELPASS])	Mix_VolumeChunk(WavChunk[LEVELPASS],g_SoundVolume);
+*/
+						
 			
 			WavChunk[BEEP]= Mix_LoadWAV("BEEP.wav");
 			if(WavChunk[BEEP]) Mix_VolumeChunk(WavChunk[BEEP],g_SoundVolume);
@@ -361,11 +382,7 @@ void initAudio()
 			WavChunk[SHIPBOOM]= Mix_LoadWAV("SHIPBOOM.wav");
 			if(WavChunk[SHIPBOOM]) Mix_VolumeChunk(WavChunk[SHIPBOOM],g_SoundVolume);	
 
-			WavChunk[GAMEOVER]= Mix_LoadWAV("GAMEOVER.wav");
-			if(WavChunk[GAMEOVER]) Mix_VolumeChunk(WavChunk[GAMEOVER],g_SoundVolume);	
-			
-			WavChunk[LEVELPASS]= Mix_LoadWAV("LEVELPASS.wav");
-			if(WavChunk[LEVELPASS])	Mix_VolumeChunk(WavChunk[LEVELPASS],g_SoundVolume);
+
 			
 			printf("Couldn't Mix_VolumeChunk: %s\n", SDL_GetError());	
 		}
@@ -380,11 +397,48 @@ void unloadAudio()
              Mix_FreeChunk(WavChunk[i]);
 		     WavChunk[i]=NULL;
 		}
+		if(WavMusic[i])
+		{
+			Mix_FreeMusic(WavMusic[i]);
+			WavMusic[i] = NULL;
+		}
 	}
 	Mix_CloseAudio();
 }
 
 bool audioSwitch = true;	 
+
+
+//播放音乐
+int PlayMusicAudio(int  pos, bool stopcurrent)
+{
+	if(!audioSwitch) return 0;
+	
+    if(g_EnableSound==0 || pos >= WAVNUM || WavMusic[pos] == NULL)
+	{
+		printf("Couldn't Play Music \n");
+		return 1;          	
+	}
+		
+	if(Mix_PlayingMusic()) 
+	{
+		if(stopcurrent)	
+		{
+			Mix_HaltMusic();
+			Mix_PlayMusic(WavMusic[pos], 1);
+		}
+		else
+		{
+			return 0;	
+		}
+	}
+	else
+	{
+		Mix_PlayMusic(WavMusic[pos], 1);
+	}
+	
+	return 0;	
+}
 
 //播放音效
 int PlayWAVAudio(int  pos, int len)
@@ -404,22 +458,6 @@ int PlayWAVAudio(int  pos, int len)
 }
 
 
-//播放声音优先级从低到高：BBEP   FIRE FIREPLAN  PLANBOOM  SHIPBOOM 
-//void PlayAudioLogic()
-//{
-	
-	//PlayWAVAudio(START);	
-		
-	//PlayWAVAudio(SHIPBOOM);
-	//PlayWAVAudio(PLANBOOM);
-	//PlayWAVAudio(FIREPLAN);
-	//PlayWAVAudio(FIRE);
-	//PlayWAVAudio(BEEP);
-				
-	//PlayWAVAudio(GAMEOVER);
-	
-	
-//}
 //------------------Voice define End----------------------------------------
 
 
@@ -808,7 +846,8 @@ void demorefresh()
 		
 		needrefresh = true;
 		
-		PlayWAVAudio(LEVELPASS, 120*15-10);
+		//PlayWAVAudio(LEVELPASS, 120*15-10);
+		PlayMusicAudio(LEVELPASS, false);
 		
 		if(debugcheck) printf("demorefresh waite game start \n");
 	}
@@ -855,6 +894,7 @@ bool hidePlan = false;
 int currentCloudPos = 0;
 void refreshCloud()
 {	
+	return;
 	currentCloudPos++;
 	hidePlan = rand()%2;	
 	BlitSurface(RGBSurface, Cloud1Image, currentCloudPos%640, 10);
@@ -1000,7 +1040,7 @@ void mainRefresh()
 
 
 #ifdef SDL_1
-	Uint32* src = (Uint32*)RGBSurface->pixels; 
+/*	Uint32* src = (Uint32*)RGBSurface->pixels; 
 	Uint32* des = (Uint32*)Screen->pixels;
 
 	for(i = 0; i<240; i++)
@@ -1016,6 +1056,7 @@ void mainRefresh()
 		}
 		src+=640;
 	}
+*/
 #endif	
 
 
@@ -1069,6 +1110,8 @@ void handleUserInput()
 	{
 		audioSwitch = !audioSwitch;	
 		needrefresh = true;
+		if(!audioSwitch && Mix_PlayingMusic()) Mix_HaltMusic();
+		
 		if(debugcheck) printf("handleUserInput change  audioSwitch\n");
 	}
 	
@@ -1093,11 +1136,12 @@ void handleUserInput()
 			if(debugcheck) printf("handleUserInput Start Game\n");
 			
 			//120*15-10
-			if(currentTick<100) //等demo音乐完成
-				SDL_Delay((120-currentTick) *15);
+			//if(currentTick<100) //等demo音乐完成
+			//	SDL_Delay((120-currentTick) *15);
 				
 			//播放游戏开始音乐
-			PlayWAVAudio(START, 0);
+			//PlayWAVAudio(START, 0);
+			PlayMusicAudio(START,true);
 			
 			//初始化状态
 			initMainGame(true);		
@@ -1142,7 +1186,8 @@ void handleUserInput()
 		if(plancount ==0)//开始新关卡
 		{
 			//播放游戏过关音乐
-			PlayWAVAudio(LEVELPASS, 0);
+			//PlayWAVAudio(LEVELPASS, 0);
+			PlayMusicAudio(LEVELPASS, true);
 			mainRefresh();		
 			
 			if(currentstage ==3)
@@ -1554,7 +1599,9 @@ bool handleShip()
 				{
 
 					//播放GameOver音乐
-					PlayWAVAudio(GAMEOVER, 0);
+					//PlayWAVAudio(GAMEOVER, 0);
+					PlayMusicAudio(GAMEOVER,true);
+					
 					mainRefresh();
 					//游戏结束
 					currentmode =0;					
@@ -1664,7 +1711,7 @@ int main(int argc, char** argv)
 	SDL_ShowCursor(SDL_DISABLE);	
 
 #ifdef SDL_1
-	Screen = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
+	Screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
 	if (Screen == NULL)
 	{
 		printf("SDL_SetVideoMode failed: %s\n", SDL_GetError());
@@ -1690,9 +1737,9 @@ int main(int argc, char** argv)
 //	RGBSurface = SDL_CreateRGBSurface(0,720,480, Screen->format->BitsPerPixel,
 //	                    Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
 #endif
-	//RGBSurface =  Screen;
-	RGBSurface =  SDL_CreateRGBSurface(SDL_SWSURFACE,640,480, Screen->format->BitsPerPixel,
-	                      Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
+	RGBSurface =  Screen;
+	//RGBSurface =  SDL_CreateRGBSurface(SDL_SWSURFACE,640,480, Screen->format->BitsPerPixel,
+	//                      Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
 						  
 #ifdef SDL_1
 	// Make sure we don't get key repeating.
@@ -1814,7 +1861,7 @@ int main(int argc, char** argv)
 #ifdef SDL_2
 	SDL_DestroyWindow(mainwindows);	
 #endif
-  if(RGBSurface)  SDL_FreeSurface(RGBSurface); 
+ // if(RGBSurface)  SDL_FreeSurface(RGBSurface); 
 
 cleanup_font:
 
