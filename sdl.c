@@ -896,7 +896,7 @@ void createValueSurface(int pre, int post)
 bool hidePlan = false;
 int currentCloudPos = 0;
 void refreshCloud()
-{	return;
+{	
 	currentCloudPos++;
 	hidePlan = rand()%2;	
 	BlitSurface(RGBSurface, Cloud1Image, currentCloudPos%640, 10);
@@ -1005,7 +1005,7 @@ void mainRefresh()
 	}
 
 	//刷新剩余飞机数量
-	if( currentmode>0)
+/*	if( currentmode>0)
 	{
 		int value= 100;	
 		int realv= 0;
@@ -1019,7 +1019,7 @@ void mainRefresh()
 		}			
 		BlitSurface(RGBSurface, smallDigitialvalue, 4, 286);
 	}
-	
+*/	
 	
 	if(!audioSwitch)//静音标志
 	{
@@ -1117,8 +1117,7 @@ void handleUserInput()
 	{
 		audioSwitch = !audioSwitch;	
 		needrefresh = true;
-		if(!audioSwitch && Mix_PlayingMusic()) Mix_HaltMusic();
-		
+		if(!audioSwitch && Mix_PlayingMusic()) Mix_HaltMusic();		
 		if(debugcheck) printf("handleUserInput change  audioSwitch\n");
 	}
 	
@@ -1738,16 +1737,23 @@ int main(int argc, char** argv)
 	
 	SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "2", SDL_HINT_OVERRIDE);		
 	
-	mainwindows = SDL_CreateWindow("AF-84",
-		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,640, 480, SDL_WINDOW_OPENGL);
 	
-	if(!mainwindows)	
+	SDL_DisplayMode currentmode;		
+	SDL_GetCurrentDisplayMode(0, &currentmode);
+	printf("SDL_GetCurrentDisplayMode: %dx%d \n", currentmode.w, currentmode.h);
+	
+	if(currentmode.w>480)
+	{
+		mainwindows = SDL_CreateWindow("AF-84",
+			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,640, 480, SDL_WINDOW_OPENGL);
+	}
+	else
 	{
 		hiResMode = false;
 		mainwindows = SDL_CreateWindow("AF-84",
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,480, 320, SDL_WINDOW_OPENGL);
 	}
-	
+			
 	Screen  = SDL_GetWindowSurface(mainwindows);
 	
 	if (Screen == NULL)
@@ -1899,7 +1905,7 @@ JoyButtonsToElements[] = {
 				case SDL_JOYBUTTONDOWN:
 				case SDL_JOYBUTTONUP:
 					if (BuiltInJS != NULL
-					 && Event.jbutton.which == JOYSTICK_INDEX(BuiltInJS))
+					 && Event.jbutton.button <16 && Event.jbutton.which == JOYSTICK_INDEX(BuiltInJS))
 					{
 						i = JoyButtonsToElements[Event.jbutton.button];
 						//if (ElementPressed[i] && Event.type == SDL_JOYBUTTONDOWN)
