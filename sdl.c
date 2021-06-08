@@ -49,7 +49,9 @@ int id;
 
 SDL_Surface* RGBSurface = NULL;
 
+
 /* - - - DATA DEFINITIONS - - - */
+bool hiResMode = true;
 
 bool debugcheck = false;
 
@@ -338,7 +340,8 @@ void initAudio()
 		
 		for(int i=0;i<WAVNUM;i++) 
 		{
-			WavChunk[i] = WavMusic[i] = NULL;
+			WavChunk[i] = NULL;
+			WavMusic[i] = NULL;
 		}
 		
 		r = Mix_OpenAudio(MIX_DEFAULT_FREQUENCY, MIX_DEFAULT_FORMAT, 2, 4096);		
@@ -893,8 +896,7 @@ void createValueSurface(int pre, int post)
 bool hidePlan = false;
 int currentCloudPos = 0;
 void refreshCloud()
-{	
-	return;
+{	return;
 	currentCloudPos++;
 	hidePlan = rand()%2;	
 	BlitSurface(RGBSurface, Cloud1Image, currentCloudPos%640, 10);
@@ -905,8 +907,7 @@ void refreshCloud()
 //刷新整个屏幕
 void mainRefresh()
 {
-	
-	
+		
 	if(!needrefresh) return;
 	
 	if(debugcheck) printf("mainRefresh start \n");
@@ -1004,7 +1005,7 @@ void mainRefresh()
 	}
 
 	//刷新剩余飞机数量
-/*	if( currentmode>0)
+	if( currentmode>0)
 	{
 		int value= 100;	
 		int realv= 0;
@@ -1018,7 +1019,8 @@ void mainRefresh()
 		}			
 		BlitSurface(RGBSurface, smallDigitialvalue, 4, 286);
 	}
-*/	
+	
+	
 	if(!audioSwitch)//静音标志
 	{
 		BlitSurface(RGBSurface, MuteImage, 100, 4);
@@ -1040,30 +1042,35 @@ void mainRefresh()
 
 
 #ifdef SDL_1
-/*	Uint32* src = (Uint32*)RGBSurface->pixels; 
-	Uint32* des = (Uint32*)Screen->pixels;
-
-	for(i = 0; i<240; i++)
+	if(!hiResMode)
 	{
-		for(j=0; j<320; j++)
+		Uint32* src = (Uint32*)RGBSurface->pixels; 
+		Uint32* des = (Uint32*)Screen->pixels;
+
+		for(i = 0; i<240; i++)
 		{
-			*des = (((*src)&0xFCFCFCFC)>>2) + (((*(src+1))&0xFCFCFCFC)>>2) + (((*(src+640))&0xFCFCFCFC)>>2) + (((*(src+641))&0xFCFCFCFC)>>2)
-					+(((((*src)&0x3030303) + ((*(src+1))&0x3030303) + ((*(src+640))&0x3030303) + ((*(src+641))&0x3030303))&0xFCFCFCFC)>>2);	
-			//*des = *src; //((*src)&0xFF)+(((*src)&0xFCFCFCFC)>>2 + ((*(src+1))&0xFCFCFCFC)>>2 + ((*(src+640))&0xFCFCFCFC)>>2 + ((*(src+641))&0xFCFCFCFC)>>2);
-								 //+((((*src)&0x3030303 + (*(src+1))&0x3030303  + (*(src+640))&0x3030303 + (*(src+641))&0x3030303)&0xFCFCFCFC)>>2);			
-			des++;
-			src+=2;
+			for(j=0; j<320; j++)
+			{
+				*des = (((*src)&0xFCFCFCFC)>>2) + (((*(src+1))&0xFCFCFCFC)>>2) + (((*(src+640))&0xFCFCFCFC)>>2) + (((*(src+641))&0xFCFCFCFC)>>2)
+						+(((((*src)&0x3030303) + ((*(src+1))&0x3030303) + ((*(src+640))&0x3030303) + ((*(src+641))&0x3030303))&0xFCFCFCFC)>>2);	
+				//*des = *src; //((*src)&0xFF)+(((*src)&0xFCFCFCFC)>>2 + ((*(src+1))&0xFCFCFCFC)>>2 + ((*(src+640))&0xFCFCFCFC)>>2 + ((*(src+641))&0xFCFCFCFC)>>2);
+									 //+((((*src)&0x3030303 + (*(src+1))&0x3030303  + (*(src+640))&0x3030303 + (*(src+641))&0x3030303)&0xFCFCFCFC)>>2);			
+				des++;
+				src+=2;
+			}
+			src+=640;
 		}
-		src+=640;
 	}
-*/
 #endif	
 
 
 #ifdef SDL_2
-	SDL_Rect destRec={27,  1,  426, 318};	
+	if(!hiResMode)
+	{
+		SDL_Rect destRec={27,  1,  426, 318};	
 
-	SDL_BlitScaled(RGBSurface, NULL, Screen, &destRec);
+		SDL_BlitScaled(RGBSurface, NULL, Screen, &destRec);
+	}
 	
 	SDL_UpdateWindowSurface(mainwindows);
 #endif	
@@ -1449,7 +1456,8 @@ bool handlePlan()
 						
 						
 						//播放GameOver音乐
-						PlayWAVAudio(GAMEOVER, 0);
+						//PlayWAVAudio(GAMEOVER, 0);
+						PlayMusicAudio(GAMEOVER,true);
 						if(HiSCORE< SCORE)HiSCORE = SCORE;
 						mainRefresh();	
 						
@@ -1709,20 +1717,36 @@ int main(int argc, char** argv)
 	}
 
 	SDL_ShowCursor(SDL_DISABLE);	
-
+	
+	SDL_ClearError();
 #ifdef SDL_1
+	
 	Screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
 	if (Screen == NULL)
 	{
-		printf("SDL_SetVideoMode failed: %s\n", SDL_GetError());
-		Error = true;
-		goto cleanup_font;
+		printf("SDL_Set 640 VideoMode failed: %s\n", SDL_GetError());
+		SDL_ClearError();
+		Screen = SDL_SetVideoMode(320, 240, 32, SDL_SWSURFACE);
+		hiResMode = false;
+		if (Screen == NULL)
+		{
+			Error = true;
+			goto cleanup_font;
+		}
 	}
 #else
 	
 	SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "2", SDL_HINT_OVERRIDE);		
+	
 	mainwindows = SDL_CreateWindow("AF-84",
-		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,480, 320, SDL_WINDOW_OPENGL);
+		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,640, 480, SDL_WINDOW_OPENGL);
+	
+	if(!mainwindows)	
+	{
+		hiResMode = false;
+		mainwindows = SDL_CreateWindow("AF-84",
+			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,480, 320, SDL_WINDOW_OPENGL);
+	}
 	
 	Screen  = SDL_GetWindowSurface(mainwindows);
 	
@@ -1737,9 +1761,11 @@ int main(int argc, char** argv)
 //	RGBSurface = SDL_CreateRGBSurface(0,720,480, Screen->format->BitsPerPixel,
 //	                    Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
 #endif
-	RGBSurface =  Screen;
-	//RGBSurface =  SDL_CreateRGBSurface(SDL_SWSURFACE,640,480, Screen->format->BitsPerPixel,
-	//                      Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
+	if(hiResMode)	
+		RGBSurface =  Screen;
+	else
+		RGBSurface =  SDL_CreateRGBSurface(SDL_SWSURFACE,640,480, Screen->format->BitsPerPixel,
+	                      Screen->format->Rmask,Screen->format->Gmask,Screen->format->Bmask,0);
 						  
 #ifdef SDL_1
 	// Make sure we don't get key repeating.
@@ -1757,6 +1783,95 @@ int main(int argc, char** argv)
 	
 	initAudio();
 	initVideoSurface();
+
+//重定义按键映射
+
+/*
+	ELEMENT_DPAD_UP,
+	ELEMENT_DPAD_DOWN,
+	ELEMENT_DPAD_LEFT,
+	ELEMENT_DPAD_RIGHT,
+	ELEMENT_Y,
+	ELEMENT_B,
+	ELEMENT_X,
+	ELEMENT_A,
+	ELEMENT_SELECT,
+	ELEMENT_START,
+	ELEMENT_L1,
+	ELEMENT_R1,
+	ELEMENT_L2,
+	ELEMENT_R2,
+	ELEMENT_L3,
+	ELEMENT_R3,
+
+JoyButtonsToElements[] = {
+	B,      
+	A,
+	X,
+	Y,	
+	L1,
+	R1,
+	L2,
+	R2,
+	UP,
+	DOWN,	
+	LEFT,
+	RIGHT,	
+	L3,
+	R3,
+	SELECT,
+	START,
+};
+*/
+
+
+
+	char keydefine[16][8]={	
+	{"UP"},
+	{"DOWN"},	
+	{"LEFT"},
+	{"RIGHT"},  
+	{"YKEY"},		
+	{"BKEY"},    
+	{"XKEY"},
+	{"AKEY"},
+	{"SELECT"},
+	{"START"},		
+	{"L1"},	
+	{"R1"},
+	{"L2"},
+	{"R2"},		
+	{"L3"},
+	{"R3"},	
+	};
+	
+	for(i=0; i<16; i++)
+	{
+		printf("intinal JoyButtonsToElements[%d]=%d\n", i, JoyButtonsToElements[i]);
+	}
+	FILE *fp = NULL;
+	fp = fopen("./AF-84.conf", "rb"); 
+	char buf[100];	
+	if(fp)
+	{
+		int count = 0;
+		 while(fgets(buf, sizeof(buf), fp))//每次读取一行数据，直到读取失败。
+		{
+			if(count >15) break;
+			//printf("%s\n", buf); //打印该行。
+			for(i=0; i<16; i++)
+			{
+				if(strstr(buf, keydefine[i]))
+				{
+					JoyButtonsToElements[count] = i;
+					printf("new define JoyButtonsToElements[%d]=%d\n",count, i);
+					break;
+				}
+			}
+			count ++;
+		}								
+		fclose(fp);		
+	}
 	
 	//初始化随机数
 	srand((unsigned)time(NULL));
@@ -1851,8 +1966,7 @@ int main(int argc, char** argv)
 	//	fseek(fp,0,SEEK_END); 
 	//	fclose(fp);	
 	//}
-	
-	
+		
 
 	if (BuiltInJS != NULL)
 		SDL_JoystickClose(BuiltInJS);
@@ -1861,7 +1975,7 @@ int main(int argc, char** argv)
 #ifdef SDL_2
 	SDL_DestroyWindow(mainwindows);	
 #endif
- // if(RGBSurface)  SDL_FreeSurface(RGBSurface); 
+  if(!hiResMode && RGBSurface)  SDL_FreeSurface(RGBSurface); 
 
 cleanup_font:
 
