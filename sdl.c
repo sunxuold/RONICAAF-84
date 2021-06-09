@@ -23,28 +23,25 @@
 #if defined SDL_1
 #  define SDL_VER_STR "1.2"
 #  include "SDL/SDL.h"
-#  define SDL_SCREEN_TYPE SDL_Surface*
-#  define SDL_RASTER_TYPE SDL_Surface*
+//#  define SDL_SCREEN_TYPE SDL_Surface*
+//#  define SDL_RASTER_TYPE SDL_Surface*
 #elif defined SDL_2
 #  define SDL_VER_STR "2.0"
 #  include "SDL2/SDL.h"
-#  define SDL_SCREEN_TYPE SDL_Window*
+//#  define SDL_SCREEN_TYPE SDL_Window*
 //#  define SDL_RASTER_TYPE SDL_Texture*
 #else
 #  error "neither SDL_1 nor SDL_2 is defined"
 #endif
 
 //#include "SDL_ttf.h"
-
 SDL_Surface* Screen;
-#ifndef SDL_1
+
+#if defined SDL_2
 //SDL_Renderer* Renderer;
 //SDL_Haptic* HapticDevice;
 SDL_Window* mainwindows;
-#else
-//Shake_Effect HapticEffect;	
-//Shake_Device *HapticDevice;
-int id;
+SDL_Rect mainDestRec;	
 #endif
 
 SDL_Surface* RGBSurface = NULL;
@@ -158,6 +155,8 @@ void LoadSurfacefromFile(SDL_Surface** desSurface, const char* filename)
 //初始化图像内容
 void initVideoSurface()
 {
+	printf("enrty initVideoSurface\n");
+	
 	LoadSurfacefromFile(&planmap1, "Plan1.png");
 	LoadSurfacefromFile(&planmap2, "Plan2.png");
 	LoadSurfacefromFile(&planmap3, "Plan3.png");
@@ -328,6 +327,8 @@ int g_SoundVolume = 128;
 //初始化声音资源
 void initAudio()
 {
+	
+	printf("enrty initAudio\n");	
 	int r;
 	r=SDL_InitSubSystem(SDL_INIT_AUDIO);
     if(r<0)
@@ -351,7 +352,8 @@ void initAudio()
 			g_EnableSound=0;						
 		}
 		else
-		{
+		{	
+			SDL_ClearError();
 			g_EnableSound=1;
 			Mix_VolumeMusic(g_SoundVolume);
 			
@@ -698,7 +700,7 @@ const SDL_Color ColorEverOthers   = {  64,  32,  64, 255 };
 bool MustExit(void)
 {
 	// Start+Select allows exiting this application.
-	return ElementPressed[ELEMENT_SELECT] && ElementPressed[ELEMENT_START];
+	return ElementEverPressed[ELEMENT_SELECT] && ElementEverPressed[ELEMENT_START];
 }
 
 #ifdef SDL_1
@@ -891,12 +893,13 @@ void createValueSurface(int pre, int post)
 	}
 	
 }
-
+ 
 //刷新云彩动画
 bool hidePlan = false;
 int currentCloudPos = 0;
 void refreshCloud()
 {	
+	return;
 	currentCloudPos++;
 	hidePlan = rand()%2;	
 	BlitSurface(RGBSurface, Cloud1Image, currentCloudPos%640, 10);
@@ -1005,7 +1008,7 @@ void mainRefresh()
 	}
 
 	//刷新剩余飞机数量
-/*	if( currentmode>0)
+	if( currentmode>0)
 	{
 		int value= 100;	
 		int realv= 0;
@@ -1019,7 +1022,7 @@ void mainRefresh()
 		}			
 		BlitSurface(RGBSurface, smallDigitialvalue, 4, 286);
 	}
-*/	
+	
 	
 	if(!audioSwitch)//静音标志
 	{
@@ -1067,9 +1070,9 @@ void mainRefresh()
 #ifdef SDL_2
 	if(!hiResMode)
 	{
-		SDL_Rect destRec={27,  1,  426, 318};	
+		//SDL_Rect destRec={27,  1,  426, 318};	
 
-		SDL_BlitScaled(RGBSurface, NULL, Screen, &destRec);
+		SDL_BlitScaled(RGBSurface, NULL, Screen, &mainDestRec);
 	}
 	
 	SDL_UpdateWindowSurface(mainwindows);
@@ -1193,6 +1196,8 @@ void handleUserInput()
 		{
 			//播放游戏过关音乐
 			//PlayWAVAudio(LEVELPASS, 0);
+			needrefresh = true;
+			
 			PlayMusicAudio(LEVELPASS, true);
 			mainRefresh();		
 			
@@ -1742,17 +1747,23 @@ int main(int argc, char** argv)
 	SDL_GetCurrentDisplayMode(0, &currentmode);
 	printf("SDL_GetCurrentDisplayMode: %dx%d \n", currentmode.w, currentmode.h);
 	
-	if(currentmode.w>480)
+	mainDestRec.w = currentmode.h*4/3;
+	mainDestRec.h = currentmode.h;
+	mainDestRec.x = (currentmode.w -mainDestRec.w)/2;
+	mainDestRec.y = 0;
+	
+	hiResMode = false;
+	//if(currentmode.w>480)
 	{
 		mainwindows = SDL_CreateWindow("AF-84",
-			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,640, 480, SDL_WINDOW_OPENGL);
+			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,currentmode.w, currentmode.h, SDL_WINDOW_FULLSCREEN|SDL_WINDOW_OPENGL);
 	}
-	else
-	{
-		hiResMode = false;
-		mainwindows = SDL_CreateWindow("AF-84",
-			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,480, 320, SDL_WINDOW_OPENGL);
-	}
+	//else
+	//{
+	//	hiResMode = false;
+	//	mainwindows = SDL_CreateWindow("AF-84",
+	//		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,480, 320, SDL_WINDOW_OPENGL);
+	//}
 			
 	Screen  = SDL_GetWindowSurface(mainwindows);
 	
@@ -1889,6 +1900,11 @@ JoyButtonsToElements[] = {
 
 	if(debugcheck) printf("First Main frame Blit error is: %s\n", SDL_GetError());
 	
+	for (i = 0; i < ELEMENT_COUNT; i++)
+	{
+		ElementEverPressed[i] = ElementPressed[i] = 0;
+	}
+			
 	while (!Exit)
 	{
 		int delaytime, endtime; //延迟时间
@@ -1904,8 +1920,7 @@ JoyButtonsToElements[] = {
 			{
 				case SDL_JOYBUTTONDOWN:
 				case SDL_JOYBUTTONUP:
-					if (BuiltInJS != NULL
-					 && Event.jbutton.button <16 && Event.jbutton.which == JOYSTICK_INDEX(BuiltInJS))
+					if (BuiltInJS != NULL && Event.jbutton.button <16)// && Event.jbutton.which == JOYSTICK_INDEX(BuiltInJS))
 					{
 						i = JoyButtonsToElements[Event.jbutton.button];
 						//if (ElementPressed[i] && Event.type == SDL_JOYBUTTONDOWN)
@@ -1913,9 +1928,19 @@ JoyButtonsToElements[] = {
 						//else if (!ElementPressed[i] && Event.type == SDL_JOYBUTTONUP)
 						//	printf("Received SDL_JOYBUTTONUP for already-released button %s (joystick %d button %d)\n", ElementNames[i], Event.jbutton.which, Event.jbutton.button);
 						ElementPressed[i] = (Event.type == SDL_JOYBUTTONDOWN);
-						ElementEverPressed[i] |= ElementPressed[i];
+						ElementEverPressed[i] = (Event.type == SDL_JOYBUTTONDOWN);
 					}
 					break;
+				case SDL_JOYHATMOTION:
+					if (BuiltInJS != NULL && Event.jhat.hat == 0)
+					{
+						ElementPressed[ELEMENT_DPAD_UP   ] = !!(Event.jhat.value & SDL_HAT_UP);
+						ElementPressed[ELEMENT_DPAD_DOWN ] = !!(Event.jhat.value & SDL_HAT_DOWN);
+						ElementPressed[ELEMENT_DPAD_LEFT ] = !!(Event.jhat.value & SDL_HAT_LEFT);
+						ElementPressed[ELEMENT_DPAD_RIGHT] = !!(Event.jhat.value & SDL_HAT_RIGHT);						
+					}
+					break;
+					
 				case SDL_KEYDOWN:
 				case SDL_KEYUP:
 					for (i = 0; i < sizeof(KeysHavingElements) / sizeof(KeysHavingElements[0]); i++)
@@ -1928,7 +1953,7 @@ JoyButtonsToElements[] = {
 						{
 							i = KeysToElements[i];							
 							ElementPressed[i] = (Event.type == SDL_KEYDOWN);
-							ElementEverPressed[i] = true;
+							ElementEverPressed[i] = (Event.type == SDL_KEYDOWN);
 							//printf("Received SDL_KEY button %s (keyboard %s)\n", ElementNames[i], SDL_GetKeyName(Event.key.keysym.sym));
 							//fwrite(strlog, sizeof(strlog) , 1, fp );	
 							break;
