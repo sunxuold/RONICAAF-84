@@ -4,6 +4,10 @@
   I have Play The game  on my child  give me many happy times , so i try to create it 
   on pc.
 
-HAVE FUN!
+HAVE A FUN!
   
 ![pic1](./game.jpg)
+
+
+simulator screen
+![pic1](./Data/MainBack.png)
