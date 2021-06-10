@@ -726,22 +726,28 @@ int currentmode = 0;
 //输入模式 0-标准方向模式，1- 经典模式
 int inputmode= 0; 
 
-//定义每关的延迟周期每秒60个周期，暂定9关
-int dashDelay[]=      {0,110,100,90, 80, 70, 60, 50,40,30,20, 10 ,5  };//飞机下降延迟
-int newPlanDelay[]=   {0,90 ,80 ,70, 60, 50, 40, 30,25,20,15, 6  ,3  };//飞机出现延迟
-int shipDelay[]=      {0,360,300,240,200,160,120,90,60,40,30 ,20 ,10 };//小船前进延迟
-int levelPlanCount[] ={0,20, 22, 25, 30, 36, 45, 60,72,90,120,300,600}; //每阶段总飞机数量
+//定义每关的延迟周期每秒60个周期，暂定12关 发现 40 25 60 有人过了第一关,所以降低难度作为终极关的参考参数
+//110,100,90, 80, 70, 60, 50, 40,30,20, 10 ,5 //飞机下降延迟
+// 90 ,80,70, 60, 50, 40, 30, 25,20,15, 6  ,3 //飞机出现延迟
+//360,300,240,200,160,120,90, 60,40,30 ,20 ,10//小船前进延迟
+ 
+int dashDelay[]=      {0,110,100,90, 80, 70, 60, 50,  48,45,43,40,38};//飞机下降延迟
+int newPlanDelay[]=   {0,90 ,80 ,70, 60, 50, 40, 30,  28,26,24,22,20};//飞机出现延迟
+int shipDelay[]=      {0,360,300,240,200,160,120,90,  80,70,65,60,55};//小船前进延迟
+int levelPlanCount[] ={0,20, 22, 25, 30, 36, 45, 60,  64,70,75,81,90}; //每阶段总飞机数量
 int shootPlanDelay = 40;//被击中飞机在屏幕上显示延迟
-int demoDelay = 120;//演示在屏幕上显示延迟
+int demoDelay = 150;//demo演示在屏幕上显示延迟
 int fireDely = 30; //
 int currentLife = 3;  //生命数
-
 
 
 int SCORE = 0; //当前分数
 int HiSCORE = 0; //当前最高分数
 
 int currentlevel = 1; //关卡级别
+
+int startlevel = 1; //开始关卡级别
+
 int HiLevel= 1; //当前最高关卡级别
 
 int currentstage = 1; //关卡阶段
@@ -1657,7 +1663,7 @@ void initMainGame( bool isintinal)
 	{
 		SCORE = 0; //当前分数		
 		currentLife = 3;  //生命数
-		currentlevel = 1; //关卡级别
+		currentlevel = startlevel; //关卡级别
 		currentstage = 1; //关卡阶段		
 		//MainPlanInfo[0][4].imageinfo = MainPlanInfo[1][4].imageinfo = MainPlanInfo[2][4].imageinfo = MainPlanInfo[3][4].imageinfo = &planboom;
 	}
@@ -1708,10 +1714,15 @@ int main(int argc, char** argv)
 	unsigned int i;
 	bool Error = false;
 	
-	if(argc >1) debugcheck = true;
+	if(argc >1) 
+	{
+		//debugcheck = true;
+		startlevel = atoi(argv[1]);
+		if (startlevel >12) startlevel = 12;
+	}
 	
-	
-	printf("SDL " SDL_VER_STR " AF-84 Game starting\n");
+		
+	printf("SDL " SDL_VER_STR " AF-84 Game starting level is: %d \n", startlevel);
 
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
 	{
