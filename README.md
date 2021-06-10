@@ -11,4 +11,4 @@ HAVE A FUN!
 
 simulator screen
 
-![pic1](./Data/MainBack.png)
+![pic1](./mainScreen.jpg)
